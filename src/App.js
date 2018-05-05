@@ -1,85 +1,94 @@
 import React, { Component } from 'react';
-import queryString from 'query-string';
+import 'reset-css/reset.css';
 import './App.css';
-let defaultTextColor='#fff';
-let fakeServerData={
-  user:{
-    name:'Ranjan',
-  
-  playlists:[
-    {
-      name:'my fav songs',
-      songs:[{name:'crying in the club',duration:1000},{name:'numb',duration:1200},{name:'hey mama',duration:1500},{name:'lost in the star ',duration:900}]
-    },
-    {
-      name:'staurday specials',
-      songs:[{name:'crying in the club',duration:1000},{name:'numb',duration:1200},{name:'hey mama',duration:1500},{name:'lost in the star ',duration:900}]
-    },
-    {
-      name:'workout songs',
-      songs:[{name:'crying in the club',duration:1000},{name:'numb',duration:1200},{name:'hey mama',duration:1500},{name:'lost in the star ',duration:900}]
-    },{
-      name:'Love tunes',
-      songs:[{name:'crying in the club',duration:1000},{name:'numb',duration:1200},{name:'hey mama',duration:1500},{name:'lost in the star ',duration:900}]
-    }
-  ]
+import queryString from 'query-string';
+
+let defaultStyle = {
+  color: '#fff',
+  'font-family': 'Papyrus'
+};
+let counterStyle = {...defaultStyle, 
+  width: "40%", 
+  display: 'inline-block',
+  'margin-bottom': '20px',
+  'font-size': '20px',
+  'line-height': '30px'
 }
+
+function isEven(number) {
+  return number % 2
 }
 
 class PlaylistCount extends Component {
-   render(){
-     return (
-       <div style={{width:'40%',display:"inline-block"}} className="aggregate">
-        <h2 style={{}}>{this.props.playlists && this.props.playlists.length} Playlists</h2>
-       </div>
-     )
-   }
+  render() {
+    let playlistCounterStyle = counterStyle
+    return (
+      <div style={playlistCounterStyle}>
+        <h2>{this.props.playlists.length} playlists</h2>
+      </div>
+    );
+  }
 }
 
 class HoursCount extends Component {
-  
-  render(){
-    let allSongs=this.props.playlists.reduce((songs,eachplaylist)=>{
-        return songs.concat(eachplaylist.songs);
-    },[])
-
-    let duration=allSongs.reduce((sum,eachSong)=>{
-        return sum + eachSong.duration;
-    },0)
-
+  render() {
+    let allSongs = this.props.playlists.reduce((songs, eachPlaylist) => {
+      return songs.concat(eachPlaylist.songs)
+    }, [])
+    let totalDuration = allSongs.reduce((sum, eachSong) => {
+      return sum + eachSong.duration
+    }, 0)
+    let totalDurationHours = Math.round(totalDuration/60)
+    let isTooLow = totalDurationHours < 40
+    let hoursCounterStyle = {...counterStyle, 
+      color: isTooLow ? 'red' : 'white',
+      'font-weight': isTooLow ? 'bold' : 'normal',
+    }
     return (
-      <div style={{width:'40%',display:"inline-block"}} className="aggregate">
-       <h2 style={{}}>{Math.round(duration/60)} hours</h2>
+      <div style={hoursCounterStyle}>
+        <h2>{totalDurationHours} hours</h2>
       </div>
-    )
+    );
   }
 }
 
-class Filter extends Component{
-  render(){
-    return(
-      <div className="filter">
-       <img />
-        <input type="text" onKeyUp={event=>this.props.onTextChange(event.target.value)} />
-        
+class Filter extends Component {
+  render() {
+    return (
+      <div style={defaultStyle}>
+        <img/>
+        <input type="text" onKeyUp={event => 
+          this.props.onTextChange(event.target.value)}
+          style={{...defaultStyle, 
+            color: 'black', 
+            'font-size': '20px', 
+            padding: '10px'}}/>
       </div>
-    )
+    );
   }
 }
 
-class Playlist extends Component{
-  render(){
-    return(
-      <div style={{display:"inline-block",width:"25%"}} className="playlist">
-      <img src={this.props.playlist.imageUrl} style={{width:"25%"}}/>
-      <h3 >{this.props.playlist.name}</h3>
-       <ul>
-        {this.props.playlist.songs.map(song=><li >{song.name}</li>)}
-       
-       
-       </ul>
+class Playlist extends Component {
+  render() {
+    let playlist = this.props.playlist
+    return (
+      <div className="playlist" style={{...defaultStyle, 
+        display: 'inline-block', 
+        width: "25%",
+        padding: '10px',
+        'background-color': isEven(this.props.index) 
+          ? '#C0C0C0' 
+          : '#808080'
+        }}>
+        <h2>{playlist.name} </h2>
+        <img src={playlist.imageUrl} style={{width: '60px','padding-top':'10px'}}/>
+        <ul style={{'margin-top': '10px', 'font-size':'14px','font-weight': 'bold'}}>
+          {playlist.songs.map(song => 
+            <li style={{'padding-top': '2px','margin-bottom':'3px'}}>{song.name}</li>
+          )}
+        </ul>
       </div>
-    )
+    );
   }
 }
 
@@ -103,28 +112,52 @@ class App extends Component {
                 this.setState({user:{name:data.display_name}})
         })
 
-      fetch('https://api.spotify.com/v1/me/playlists',{
-              headers: {
-                'Authorization': 'Bearer ' + accessToken
-                  }
-            }).then(res=>res.json())
-              .then(data=>{
-                  console.log(data);
-                this.setState({
-                  playlists:data.items.map(item=>({
-                    name:item.name,
-                    imageUrl:item.images[0].url,
-                    songs:[]
-                  }))
-                })
+        fetch('https://api.spotify.com/v1/me/playlists', {
+          headers: {'Authorization': 'Bearer ' + accessToken}
+        }).then(response => response.json())
+        .then(playlistData => {
+          let playlists = playlistData.items
+          console.log(playlistData);
+          let trackDataPromises = playlistData.items.map(playlist => {
+            let responsePromise = fetch(playlist.tracks.href, {
+              headers: {'Authorization': 'Bearer ' + accessToken}
+            })
+            let trackDataPromise = responsePromise
+              .then(response => response.json())
+            return trackDataPromise
+          })
+          let allTracksDataPromises = 
+            Promise.all(trackDataPromises)
+          let playlistsPromise = allTracksDataPromises.then(trackDatas => {
+            trackDatas.forEach((trackData, i) => {
+              playlists[i].trackDatas = trackData.items
+                .map(item => item.track)
+                .map(trackData => ({
+                  name: trackData.name,
+                  duration: trackData.duration_ms / 1000
+                }))
+            })
+            return playlists
+          })
+          return playlistsPromise
         })
+        .then(playlists => this.setState({
+          playlists: playlists.map(item => {
+            return {
+              name: item.name,
+              imageUrl: item.images[0].url, 
+              songs: item.trackDatas.slice(0,3)
+            }
+        })
+        }))
   }
   render() {
     let playlistToRender=
        this.state.user &&
        this.state.playlists
-        ? this.state.playlists.filter(playlist=>
-           {return playlist.name.toLowerCase().includes(
+        ? this.state.playlists.filter(playlist=>{
+            console.log(playlist)
+             return playlist.name.toLowerCase().includes(
              this.state.filteredString.toLowerCase())})
               :[]
 
@@ -134,7 +167,12 @@ class App extends Component {
         
           {this.state.user ?
               <div>
-                  <h1 className="App-title">{this.state.user.name}'s Playlist</h1>}
+              <h1 style={{...defaultStyle, 
+                'font-size': '44px',
+                'margin-top': '5px'
+              }}>
+                {this.state.user.name}'s Playlists
+              </h1>
                   
                   <PlaylistCount playlists={ playlistToRender} />
                   <HoursCount playlists={playlistToRender}/>
@@ -144,8 +182,8 @@ class App extends Component {
                   }/>
                   
                   { playlistToRender
-                    .map(playlist=>
-                      <Playlist playlist={playlist}/>
+                    .map((playlist,i)=>
+                      <Playlist playlist={playlist} index={i}/>
                     )}
               
               
